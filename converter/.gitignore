@@ -1,0 +1,5 @@
+*.pyc
+*.mid
+*.midi
+mididata.h
+mapping

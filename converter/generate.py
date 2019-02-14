@@ -64,7 +64,7 @@ def generateData(input, output):
   channel_state = [0] * channels
 
   # result containers
-  channel_state_list = []
+  channel_states = collections.OrderedDict()
   value_list = []
   note_list = []
   timing_list = []
@@ -100,7 +100,7 @@ def generateData(input, output):
             print "no mapping for note: "+event['note']
       # convert the channel state to hex as good compromise between readability and textsize
       hexValue = hex(int(''.join(map(str, reversed(channel_state))), 2))
-      channel_state_list.append(hexValue)
+      channel_states[current_ms]=hexValue
 
   # verify data container lengths
   if len(value_list) != len(note_list) or len(note_list) != len(timing_list):
@@ -110,28 +110,40 @@ def generateData(input, output):
   # generate header
   with open(output, 'w') as f:
     f.write('// generated header - changes will be overwritten!\n')
-    f.write('// generation time: ' + datetime.now().strftime("%Y%m%d%H%M%S") + '\n\n')
+    f.write('// generation time: ' + datetime.now().strftime("%Y%m%d%H%M%S") + '\n')
+    f.write('\n')
+
     f.write('// header for flash memory access\n')
-    f.write('#include <avr/pgmspace.h>\n\n')
+    f.write('#include <avr/pgmspace.h>\n')
+    f.write('\n')
+
     f.write('// total number of different channels/notes used\n')
     f.write('const uint8_t channel_cnt = ' + str(channels) + ';\n')
-    f.write('// total number of events\n')
-    f.write('unsigned long int event_cnt = ' + str(len(value_list)) + ';\n')
-    f.write('// timestamps of events\n')
-    f.write('const PROGMEM unsigned long int event_timestamps[] = {' + ','.join(map(str,timing_list)) + '};\n')
-    f.write('// event value is velocity (0-127) of note, used for speed control (via PWM)\n')
+    f.write('// total number of single events\n')
+    f.write('unsigned long int event_cnt_single = ' + str(len(value_list)) + ';\n')
+    f.write('// timestamps of single events\n')
+    f.write('const PROGMEM unsigned long int event_timestamps_single[] = {' + ','.join(map(str,timing_list)) + '};\n')
+    f.write('// single event value is velocity (0-127) of note, used for speed control (via PWM)\n')
     f.write('const PROGMEM uint8_t event_values[] = {' + ','.join(map(str,value_list)) + '};\n')
-    f.write('// pin/note/channel for event\n')
+    f.write('// pin/note/channel for single event\n')
     f.write('const PROGMEM uint8_t event_notes[] = {' + ','.join(map(str,note_list)) + '};\n')
-    f.write('// state (on/off) of all channels for event, used for switching\n')
+    f.write('\n')
+
+    f.write('// total number of combined events\n')
+    f.write('unsigned long int event_cnt_combined = ' + str(len(channel_states)) + ';\n')
+    f.write('// combined event timestamps\n')
+    f.write('const PROGMEM unsigned long int event_timestamps_combined[] = {' + ','.join(map(str,channel_states.keys())) + '};\n')
+    f.write('// combined (binary encoded) state (on/off) of all channels for event, used for switching (GPIO, MCP)\n')
     # adjust width correctly to save some space
     datatype = 'uint32_t'
     if(channels <= 8):
       datatype = 'uint8_t'
     elif(channels <= 16):
       datatype = 'uint16_t'
-    f.write('const PROGMEM ' + datatype + ' event_states[] = {' + ','.join(map(str,channel_state_list)) + '};\n')
+    f.write('const PROGMEM ' + datatype + ' event_states[] = {' + ','.join(channel_states.values()) + '};\n')
     f.write('// index for current event (set to beginning)\n')
+    f.write('\n')
+
     f.write('unsigned long int current_event_index = 0;\n')
 
   print('events: ' + str(len(value_list)))

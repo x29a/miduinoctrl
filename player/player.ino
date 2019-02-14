@@ -479,4 +479,9 @@ void setMillis(unsigned long ms)
   {
     timer0_millis = ms;
   }
+
+  uint8_t oldSREG = SREG;
+  cli();
+  timer0_millis = ms;
+  SREG = oldSREG;
 }

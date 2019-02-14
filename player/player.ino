@@ -84,7 +84,7 @@ void setup()
 
 #if defined(DEBUG_SERIAL) && DEBUG_SERIAL
   // init serial connection
-  Serial.begin(9600);
+  Serial.begin(115200);
   // wait for connection to be ready
   while (!Serial);
 #endif

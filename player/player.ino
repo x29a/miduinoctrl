@@ -121,7 +121,7 @@ void setup()
 
 #if !defined(TESTMODE) || !TESTMODE
   // check data size of events to decide on the read method
-  if ((sizeof(event_states) / event_cnt) > 2)
+  if ((sizeof(event_states) / event_cnt_combined) > 2)
   {
     eventSizeIs32bit = 1;
   }
@@ -194,7 +194,7 @@ void setup()
 
 #if !defined(TESTMODE) || !TESTMODE
   // read the first timestamp for action
-  nextTimestamp = pgm_read_dword_near(event_timestamps + current_event_index);
+  nextTimestamp = pgm_read_dword_near(event_timestamps_combined + current_event_index);
 #endif
 }
 
@@ -376,7 +376,7 @@ void loop()
     current_event_index++;
 
     // end of sequence reached - start from beginning
-    if (current_event_index >= event_cnt)
+    if (current_event_index >= event_cnt_combined)
     {
       // introduce internal timer and reset it instead
       current_event_index = 0;
@@ -398,7 +398,7 @@ void loop()
     }
 
     // read timestamp of next action
-    nextTimestamp = pgm_read_dword_near(event_timestamps + current_event_index);
+    nextTimestamp = pgm_read_dword_near(event_timestamps_combined + current_event_index);
   }
 }
 

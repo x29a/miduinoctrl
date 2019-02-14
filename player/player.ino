@@ -121,7 +121,7 @@ void setup()
 
 #if !defined(TESTMODE) || !TESTMODE
   // check data size of events to decide on the read method
-  if ((sizeof(events) / event_cnt) > 2)
+  if ((sizeof(event_states) / event_cnt) > 2)
   {
     eventSizeIs32bit = 1;
   }
@@ -350,11 +350,11 @@ void loop()
     unsigned long int nextConfig = 0;
     if (eventSizeIs32bit)
     {
-      nextConfig = pgm_read_dword_near(events + current_event_index);
+      nextConfig = pgm_read_dword_near(event_states + current_event_index);
     }
     else
     {
-      nextConfig = pgm_read_word_near(events + current_event_index);
+      nextConfig = pgm_read_word_near(event_states + current_event_index);
     }
 
 #if defined(DEBUG_SERIAL) && DEBUG_SERIAL

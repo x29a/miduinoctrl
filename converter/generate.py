@@ -55,21 +55,30 @@ def generateData(input, output):
   # provide default mapping
   if not mapping:
     for tone in xrange(first_midi_tone, first_midi_tone + channels):
-      mapping[tone] = (tone - first_midi_tone)   
+      mapping[tone] = (tone - first_midi_tone)
 
-  # result container
-  result = collections.OrderedDict()
+
   # state of all channels - init with off (0)
+  # value gets carried through all timestamps, so it must actively change
+  # channel state is a bitmask for all channels whether they are on (1) or off (0)
   channel_state = [0] * channels
+
+  # result containers
+  channel_state_list = []
+  value_list = []
+  note_list = []
+  timing_list = []
+
   # iterate through all milliseconds
   for current_ms in sorted(allEvents):
       events = allEvents[current_ms]
-      # iterate over all events for this millisecond
+      # iterate over all events for this millisecond timestamp
       for event in events:
         # check if event contains note information
         if 'note' in event:
-          # check if mapping for pin exists
+          # check if mapping to pin exists - unknown notes are ignored
           if event['note'] in mapping:
+            # pin is the channel for which this event occurs - dont confuse with midi channel
             pin = mapping[event['note']]
             # check if event contains on/off information
             if 'mode' in event:
@@ -77,36 +86,55 @@ def generateData(input, output):
                 channel_state[pin] = 0
               elif event['mode'] == 1:
                 channel_state[pin] = 1
+              # mode is ON and there is a velocity set
+              if event['mode'] == 1 and 'velocity' in event:
+                channel_value = event['velocity']
               else:
-                print("unknown mode in event:" + event)
+                # no velocity found or mode is OFF so we turn off instead
+                channel_value = 0
+              # append to all result containers
+              value_list.append(channel_value)
+              note_list.append(pin)
+              timing_list.append(current_ms)
           else:
-            print("no mapping for note:" + str(event['note']))
-      # convert the channel state to hex for the C header
-      # TODO add channel_state and current_ms to header
+            print "no mapping for note: "+event['note']
+      # convert the channel state to hex as good compromise between readability and textsize
       hexValue = hex(int(''.join(map(str, reversed(channel_state))), 2))
-      result[current_ms] = hexValue
+      channel_state_list.append(hexValue)
+
+  # verify data container lengths
+  if len(value_list) != len(note_list) or len(note_list) != len(timing_list):
+    print "data containers are not equally filled"
+    exit(1)
+
   # generate header
   with open(output, 'w') as f:
     f.write('// generated header - changes will be overwritten!\n')
-    f.write('// generation time:' + datetime.now().strftime("%Y%m%d%H%M%S") + '\n')
+    f.write('// generation time: ' + datetime.now().strftime("%Y%m%d%H%M%S") + '\n\n')
     f.write('// header for flash memory access\n')
     f.write('#include <avr/pgmspace.h>\n\n')
-    f.write('// number of events\n')
-    f.write('unsigned long int event_cnt = ' + str(len(result)) + ';\n')
-    f.write('// event timestamps in milliseconds\n')
-    f.write('const PROGMEM unsigned long int event_timestamps[] = {' + ','.join(map(str,result.keys())) + '};\n')
-    f.write('// events, index like timestamps, value is binary encoded state for channels\n')
+    f.write('// total number of different channels/notes used\n')
+    f.write('const uint8_t channel_cnt = ' + str(channels) + ';\n')
+    f.write('// total number of events\n')
+    f.write('unsigned long int event_cnt = ' + str(len(value_list)) + ';\n')
+    f.write('// timestamps of events\n')
+    f.write('const PROGMEM unsigned long int event_timestamps[] = {' + ','.join(map(str,timing_list)) + '};\n')
+    f.write('// event value is velocity (0-127) of note, used for speed control (via PWM)\n')
+    f.write('const PROGMEM uint8_t event_values[] = {' + ','.join(map(str,value_list)) + '};\n')
+    f.write('// pin/note/channel for event\n')
+    f.write('const PROGMEM uint8_t event_notes[] = {' + ','.join(map(str,note_list)) + '};\n')
+    f.write('// state (on/off) of all channels for event, used for switching\n')
     # adjust width correctly to save some space
     datatype = 'uint32_t'
     if(channels <= 8):
-        datatype = 'uint8_t'
+      datatype = 'uint8_t'
     elif(channels <= 16):
-        datatype = 'uint16_t'
+      datatype = 'uint16_t'
+    f.write('const PROGMEM ' + datatype + ' event_states[] = {' + ','.join(map(str,channel_state_list)) + '};\n')
+    f.write('// index for current event (set to beginning)\n')
+    f.write('unsigned long int current_event_index = 0;\n')
 
-    f.write('const PROGMEM ' + datatype + ' events[] = {' + ','.join(result.values()) + '};\n')
-    f.write('// index for current event\n')
-    f.write('unsigned long int current_event_index = 0;\n')    
-  print('events: ' + str(len(result)))
+  print('events: ' + str(len(value_list)))
 
 # main program
 try:
